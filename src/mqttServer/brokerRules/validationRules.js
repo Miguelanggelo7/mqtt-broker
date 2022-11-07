@@ -5,7 +5,7 @@ import {
   evaluateString,
 } from "./evaluateExpressions.js";
 
-import Channel from "../db/Channel.js";
+import Channel from "../../db/Channel.js";
 
 function channelExists(channel) {
   return Channel.exists(channel);

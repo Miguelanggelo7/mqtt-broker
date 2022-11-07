@@ -63,11 +63,6 @@ function evaluateRule(rule) {
     throw new Error("Rule's channel does not exist");
   }
 
-  //Verificar que la regla tenga un nombre
-  if (!rule.name) {
-    throw new Error("Rule must have a name");
-  }
-
   //Evaluar items del body
   evaluateRuleItems(rule, rule.channel);
 

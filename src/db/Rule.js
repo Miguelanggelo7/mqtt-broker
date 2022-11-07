@@ -1,32 +1,19 @@
-import db from "./db";
+import db from "./db.js";
 
 const rulesRef = db.collection("rules");
 
 class Rule {
-  static async exists(name, channel) {
-    const res = await rulesRef
-      .where("name", "==", name)
-      .where("channel", "==", channel)
-      .get();
-    return res.size > 0;
-  }
-
   static async existsOnChannel(channel) {
     const res = await rulesRef.where("channel", "==", channel).get();
     return res.size > 0;
   }
 
   static async add(rule) {
-    if (await Rule.exists(rule.name, rule.channel)) {
+    if (await Rule.existsOnChannel(rule.channel)) {
       throw new Error("Rule already exists");
     }
     const res = await rulesRef.add(rule);
     return res;
-  }
-
-  static async getByName(name) {
-    const res = await rulesRef.where("name", "==", name).get();
-    return res[0];
   }
 
   static async getByChannel(channel) {
@@ -49,8 +36,8 @@ class Rule {
     return res;
   }
 
-  static async deleteByName(name) {
-    const res = await rulesRef.where("name", "==", name).get();
+  static async deleteByChannel(channel) {
+    const res = await rulesRef.where("channel", "==", channel).get();
     res.forEach((doc) => {
       doc.ref.delete();
     });

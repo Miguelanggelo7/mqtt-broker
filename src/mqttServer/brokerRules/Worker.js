@@ -5,20 +5,21 @@ import {
   evaluateString,
 } from "./evaluateExpressions.js";
 import { channelExists, isValidValue } from "./validationRules.js";
-import Log from "../db/Log.js";
+import Log from "../../db/Log.js";
 
 class Worker {
-  constructor(rule, broker) {
+  constructor(rule, channel, payload) {
     this.rule = rule;
-    this.broker = broker;
+    const json = JSON.parse(payload);
+    this.broker = { principalChannel: channel, payload: json };
   }
 
   isPrincipal(channel) {
     return channel === this.broker.principalChannel;
   }
 
-  getEventFromBroker(channel) {
-    return this.broker.getEvent(channel);
+  getEventFromBroker() {
+    return this.broker.payload;
   }
 
   async getEventFromDatabase(channel) {

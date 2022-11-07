@@ -1,17 +1,22 @@
-import db from "./db";
+import db from "./db.js";
 import { FieldValue } from "firebase-admin/firestore";
 
 const logsRef = db.collection("logs");
 
 class Log {
-  constructor(channel, message, createdAt) {
+  constructor(channel, payload, createdAt) {
     this.channel = channel;
-    this.message = message;
+    this.payload = payload;
     this.createdAt = createdAt;
   }
 
-  static async add(channel, message) {
-    const log = new Log(channel, message, FieldValue.serverTimestamp());
+  static async add(channel, payload) {
+    const json = JSON.parse(payload);
+    const log = {
+      channel,
+      payload: json,
+      createdAt: FieldValue.serverTimestamp(),
+    };
     const res = await logsRef.add(log);
     return res;
   }

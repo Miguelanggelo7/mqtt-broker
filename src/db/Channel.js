@@ -1,4 +1,4 @@
-import db from "./db";
+import db from "./db.js";
 import { FieldValue } from "firebase-admin/firestore";
 
 const channelsRef = db.collection("channels");
@@ -10,8 +10,12 @@ class Channel {
   }
 
   static async delete(id) {
-    const res = await channelsRef.doc(id).delete();
-    return res;
+    try {
+      const res = await channelsRef.doc(id).delete();
+      return res;
+    } catch (error) {
+      console.log(error);
+    }
   }
 
   static async exists(name) {
@@ -20,11 +24,14 @@ class Channel {
   }
 
   static async add(name) {
-    if (await Channel.exists(name)) {
-      throw new Error("Channel already exists");
+    if (await this.exists(name)) {
+      //console.log(`Channel already exists`);
+      return null;
     }
-    const Channel = new Channel(name, FieldValue.serverTimestamp());
-    const res = await channelsRef.add(Channel);
+
+    const channel = { name: name, createdAt: FieldValue.serverTimestamp() };
+    const res = await channelsRef.add(channel);
+    console.log("New Channel ID", res.id);
     return res;
   }
 
