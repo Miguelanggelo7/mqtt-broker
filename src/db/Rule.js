@@ -1,34 +1,45 @@
 import db from "./db.js";
+import evaluateRule from "../mqttServer/brokerRules/evaluateRule.js";
 
 const rulesRef = db.collection("rules");
 
 class Rule {
   static async existsOnChannel(channel) {
     const res = await rulesRef.where("channel", "==", channel).get();
-    return res.size > 0;
+    return !res.empty;
   }
 
   static async add(rule) {
     if (await Rule.existsOnChannel(rule.channel)) {
-      throw new Error("Rule already exists");
+      return new Error("Rule already exists on channel");
     }
+    const isValid = await evaluateRule(rule);
+    if (isValid instanceof Error) {
+      return isValid;
+    }
+
     const res = await rulesRef.add(rule);
     return res;
   }
 
   static async getByChannel(channel) {
     const res = await rulesRef.where("channel", "==", channel).get();
-    return res;
+    if (res.empty) {
+      return null;
+    } else {
+      return res.docs[0].data();
+    }
   }
 
   static async get(id) {
     const res = await rulesRef.doc(id).get();
-    return res;
+    return res.data();
   }
 
   static async getAll() {
     const res = await rulesRef.get();
-    return res;
+    const rules = res.docs.map((doc) => doc.data());
+    return rules;
   }
 
   static async delete(id) {
@@ -38,10 +49,13 @@ class Rule {
 
   static async deleteByChannel(channel) {
     const res = await rulesRef.where("channel", "==", channel).get();
-    res.forEach((doc) => {
-      doc.ref.delete();
-    });
-
+    if (!res.empty) {
+      res.forEach((doc) => {
+        doc.ref.delete();
+      });
+    } else {
+      return new Error("No rule found on channel");
+    }
     return res;
   }
 }

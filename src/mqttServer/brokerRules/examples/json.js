@@ -1,36 +1,36 @@
-// const json = {
-// 	channel: 'lights/controllers',
-// 	name: 'rule1',
-// 	logicOperator: 'OR',
-// 	body: [
-// 		{
-// 			channel: 'lights/controllers/sensor1',
-// 			atribute: 'order',
-// 			type: 'STRING',
-// 			operator: 'ANY',
-// 		},
-// 		{
-// 			logicOperator: 'AND',
-// 			body: [
-// 				{
-// 					channel: 'lights/controllers/switch1',
-// 					atribute: 'order',
-// 					type: 'STRING',
-// 					operator: 'ANY',
-// 				},
-// 				{
-// 					channel: 'lights/controllers/sensor1',
-// 					atribute: 'order',
-// 					operator: 'EQUAL',
-// 					type: 'STRING',
-// 					value: 'OFF',
-// 				},
-// 			],
-// 		},
-// 	],
-// };
+const json1 = {
+  channel: "lights/controllers",
+  name: "rule1",
+  logicOperator: "OR",
+  body: [
+    {
+      channel: "lights/controllers/sensor1",
+      atribute: "order",
+      type: "STRING",
+      operator: "ANY",
+    },
+    {
+      logicOperator: "AND",
+      body: [
+        {
+          channel: "lights/controllers/switch1",
+          atribute: "order",
+          type: "STRING",
+          operator: "ANY",
+        },
+        {
+          channel: "lights/controllers/sensor1",
+          atribute: "order",
+          operator: "EQUAL",
+          type: "STRING",
+          value: "OFF",
+        },
+      ],
+    },
+  ],
+};
 
-const json = {
+const json2 = {
   channel: "lights/controllers",
   //logicOperator: "OR",
   body: [
@@ -46,7 +46,7 @@ const json = {
   ],
 };
 
-export default json;
+export default { json1, json2 };
 
 /**
  EVALUATE RULE

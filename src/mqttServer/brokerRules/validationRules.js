@@ -7,8 +7,12 @@ import {
 
 import Channel from "../../db/Channel.js";
 
-function channelExists(channel) {
-  return Channel.exists(channel);
+async function channelExists(channel) {
+  return await Channel.exists(channel);
+}
+
+async function superChannelExists(channel) {
+  return await Channel.superExists(channel);
 }
 
 function isSubChannel(channel, topChannel) {
@@ -91,4 +95,5 @@ export {
   isValidValue,
   isValidLogicOperator,
   isSubChannel,
+  superChannelExists,
 };

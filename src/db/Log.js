@@ -23,7 +23,8 @@ class Log {
 
   static async getAll() {
     const res = await logsRef.get();
-    return res;
+    const logs = res.docs.map((doc) => doc.data());
+    return logs;
   }
 
   static async getLastLogFromChannel(channel) {
@@ -32,7 +33,7 @@ class Log {
       .orderBy("createdAt", "desc")
       .limit(1)
       .get();
-    return res;
+    return res.docs[0].data();
   }
 }
 

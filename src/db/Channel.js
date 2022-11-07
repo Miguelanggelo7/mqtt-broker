@@ -20,29 +20,37 @@ class Channel {
 
   static async exists(name) {
     const res = await channelsRef.where("name", "==", name).get();
-    return res.size > 0;
+    return !res.empty;
+  }
+
+  // eslint-disable-next-line no-unused-vars
+  static async superExists(name) {
+    //TODO
   }
 
   static async add(name) {
     if (await this.exists(name)) {
-      //console.log(`Channel already exists`);
       return null;
     }
 
     const channel = { name: name, createdAt: FieldValue.serverTimestamp() };
     const res = await channelsRef.add(channel);
-    console.log("New Channel ID", res.id);
     return res;
   }
 
   static async get(name) {
     const res = await channelsRef.where("name", "==", name).get();
-    return res[0];
+    if (res.empty) {
+      return null;
+    } else {
+      return res.docs[0].data();
+    }
   }
 
   static async getAll() {
     const res = await channelsRef.get();
-    return res;
+    const channels = res.docs.map((doc) => doc.data());
+    return channels;
   }
 
   static async deleteByName(name) {

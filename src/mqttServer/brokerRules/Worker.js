@@ -4,7 +4,7 @@ import {
   evaluateNumber,
   evaluateString,
 } from "./evaluateExpressions.js";
-import { channelExists, isValidValue } from "./validationRules.js";
+import { isValidValue } from "./validationRules.js";
 import Log from "../../db/Log.js";
 
 class Worker {
@@ -23,11 +23,12 @@ class Worker {
   }
 
   async getEventFromDatabase(channel) {
-    const lastLog = await Log.getLastLog(channel);
+    const lastLog = await Log.getLastLogFromChannel(channel);
     if (!lastLog) {
-      throw new Error("Channel does not exist");
+      // throw new Error("Channel does not exist");
+      return true;
     }
-    return JSON.parse(lastLog.message);
+    return lastLog.payload;
   }
 
   async evaluateTerm(term) {
@@ -36,16 +37,13 @@ class Worker {
     if (this.isPrincipal(term.channel)) {
       event = this.getEventFromBroker(term.channel);
     } else {
-      try {
-        event = await this.getEventFromDatabase(term.channel);
-      } catch (error) {
-        return true;
-      }
+      event = await this.getEventFromDatabase(term.channel);
     }
 
     //Verificar que el atributo sea valido
     if (!event[term.atribute]) {
-      throw new Error("Invalid atribute");
+      // throw new Error("Invalid atribute");
+      return true;
     }
 
     switch (term.type) {
@@ -72,40 +70,46 @@ class Worker {
     }
   }
 
-  worker(item) {
+  async worker(item) {
     //Si no es un grupo
     if (!item.body) {
       //Verificar que el canal exista
-      if (!channelExists(item.channel)) {
-        throw new Error("Channel does not exist");
-      }
+      // if (!channelExists(item.channel)) {
+      //   throw new Error("Channel does not exist");
+      // }
 
       //Verificar que el valor sea valido
-      if (!isValidValue(item.value, item.type, item.argument)) {
-        throw new Error("Invalid value");
+      if (
+        item.operator !== "ANY" &&
+        !isValidValue(item.value, item.type, item.argument)
+      ) {
+        console.log("Invalid value");
+        return true;
       }
 
       //Calcular el valor de verdad
-      return this.evaluateTerm(item);
+      const valueY = await this.evaluateTerm(item);
+      return valueY;
     } else {
       if (item.body.length > 1) {
-        const stopCondition = item.logicOperator === "AND";
+        const stopCondition = item.logicOperator === "OR";
 
-        item.body.forEach((item) => {
-          if (this.worker(item) === stopCondition) {
+        for (let i = 0; i < item.body.length; i++) {
+          const value = (await this.worker(item.body[i])) === stopCondition;
+          if (value) {
             return stopCondition;
           }
-        });
+        }
 
         return !stopCondition;
       } else {
-        return this.worker(item.body[0]);
+        return await this.worker(item.body[0]);
       }
     }
   }
 
-  run() {
-    return this.worker(this.rule);
+  async run() {
+    return await this.worker(this.rule);
   }
 }
 

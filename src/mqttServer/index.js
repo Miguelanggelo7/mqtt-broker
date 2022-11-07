@@ -50,18 +50,19 @@ aedes.on("unsubscribe", function (subscriptions, client) {
   );
 });
 
-aedes.authorizePublish = (client, packet, callback) => {
-  // if (Rule.existsOnChannel(packet.topic)) {
-  //   const rule = Rule.getByChannel(packet.topic);
-  //   const worker = new Worker(rule, packet);
-  //   if (worker.run()) {
-  //     callback(null);
-  //   } else {
-  //     callback(new Error("Rule not passed"));
-  //   }
-  // }
-
-  callback(null);
+aedes.authorizePublish = async (client, packet, callback) => {
+  if (await Rule.existsOnChannel(packet.topic)) {
+    const rule = await Rule.getByChannel(packet.topic);
+    const worker = new Worker(rule, packet.topic, packet.payload.toString());
+    if (await worker.run()) {
+      callback(null);
+    } else {
+      console.log("Rule not passed");
+      callback(new Error("Rule not passed"));
+    }
+  } else {
+    callback(null);
+  }
 };
 
 // emitted when a client publishes a message packet on the topic
