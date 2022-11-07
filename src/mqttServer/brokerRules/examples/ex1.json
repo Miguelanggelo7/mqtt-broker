@@ -1,0 +1,30 @@
+{
+  "channel": "lights/controllers/switch1",
+  "logicOperator": "OR",
+  "body": [
+    {
+      "channel": "lights/controllers/sensor1",
+      "atribute": "order",
+      "type": "STRING",
+      "operator": "ANY"
+    },
+    {
+      "logicOperator": "AND",
+      "body": [
+        {
+          "channel": "lights/controllers/switch1",
+          "atribute": "order",
+          "type": "STRING",
+          "operator": "ANY"
+        },
+        {
+          "channel": "lights/controllers/sensor1",
+          "atribute": "order",
+          "operator": "EQUAL",
+          "type": "STRING",
+          "value": "OFF"
+        }
+      ]
+    }
+  ]
+}
