@@ -11,6 +11,11 @@ class Rule {
     return res.size > 0;
   }
 
+  static async existsOnChannel(channel) {
+    const res = await rulesRef.where("channel", "==", channel).get();
+    return res.size > 0;
+  }
+
   static async add(rule) {
     if (await Rule.exists(rule.name, rule.channel)) {
       throw new Error("Rule already exists");
@@ -22,6 +27,11 @@ class Rule {
   static async getByName(name) {
     const res = await rulesRef.where("name", "==", name).get();
     return res[0];
+  }
+
+  static async getByChannel(channel) {
+    const res = await rulesRef.where("channel", "==", channel).get();
+    return res;
   }
 
   static async get(id) {

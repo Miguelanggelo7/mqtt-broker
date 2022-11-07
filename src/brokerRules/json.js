@@ -32,7 +32,6 @@
 
 const json = {
   channel: "lights/controllers",
-  name: "rule1",
   //logicOperator: "OR",
   body: [
     {

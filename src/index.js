@@ -1,6 +1,14 @@
-const aedes = require("aedes")();
-const server = require("net").createServer(aedes.handle);
+import aedesImport from "aedes";
+import serverImport from "net";
+import Log from "./db/Log";
+import Channel from "./db/Channel";
+import Rule from "./db/Rule";
+import Worker from "./brokerRules/worker";
+
 const port = 1883 || process.env.PORT;
+
+const aedes = aedesImport();
+const server = serverImport.createServer(aedes.handle);
 
 server.listen(port, function () {
   console.log(`MQTT Broker running on port: ${port}`);
@@ -46,6 +54,18 @@ aedes.on("unsubscribe", function (subscriptions, client) {
   );
 });
 
+aedes.authorizePublish = (client, packet, callback) => {
+  if (Rule.existsOnChannel(packet.topic)) {
+    const rule = Rule.getByChannel(packet.topic);
+    const worker = new Worker(rule, packet);
+    if (worker.run()) {
+      callback(null);
+    } else {
+      callback(new Error("Rule not passed"));
+    }
+  }
+};
+
 // emitted when a client publishes a message packet on the topic
 aedes.on("publish", async function (packet, client) {
   if (client) {
@@ -54,6 +74,17 @@ aedes.on("publish", async function (packet, client) {
         client ? client.id : "BROKER_" + aedes.id
       } has published message on ${packet.topic} to broker ${aedes.id}`
     );
-    console.log(packet);
+
+    try {
+      await Channel.add(packet.topic);
+    } catch (error) {
+      console.log("");
+    }
+
+    try {
+      await Log.add(packet.topic, packet.payload.toString());
+    } catch (error) {
+      console.log("");
+    }
   }
 });

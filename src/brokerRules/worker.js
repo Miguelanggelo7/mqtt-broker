@@ -102,6 +102,10 @@ class Worker {
       }
     }
   }
+
+  run() {
+    return this.worker(this.rule);
+  }
 }
 
 export default Worker;
