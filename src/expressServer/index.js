@@ -27,7 +27,7 @@ app.use("/api/rules", rules);
 const expressServer = {
   run: () => {
     app.listen(app.get("port"), () => {
-      console.log("Server on port", app.get("port"));
+      console.log("Express server running on port", app.get("port"));
     });
   },
 };

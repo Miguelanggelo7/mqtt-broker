@@ -4,11 +4,15 @@ import Log from "../db/Log.js";
 import Channel from "../db/Channel.js";
 import Rule from "../db/Rule.js";
 import Worker from "./brokerRules/Worker.js";
+import MqttController from "./MqttController.js";
+import MqttConstants from "../constants/MqttConstants.js";
 
 const port = 1883 || process.env.PORT;
 
 const aedes = aedesImport();
 const server = serverImport.createServer(aedes.handle);
+
+MqttController.aedes = aedes;
 
 // emitted when a client connects to the broker
 aedes.on("client", function (client) {
@@ -17,6 +21,8 @@ aedes.on("client", function (client) {
       client ? client.id : client
     } connected to broker ${aedes.id}`
   );
+
+  MqttController.onClientConnect(client);
 });
 
 // emitted when a client disconnects from the broker
@@ -26,6 +32,8 @@ aedes.on("clientDisconnect", function (client) {
       client ? client.id : client
     } disconnected from the broker ${aedes.id}`
   );
+
+  MqttController.onClientDisconnect(client);
 });
 
 // emitted when a client subscribes to a message topic
@@ -50,6 +58,37 @@ aedes.on("unsubscribe", function (subscriptions, client) {
   );
 });
 
+// emitted when a client publishes a message packet on the topic
+aedes.on("publish", async function (packet, client) {
+  if (client) {
+    console.log(
+      `[MESSAGE_PUBLISHED] Client ${
+        client ? client.id : "BROKER_" + aedes.id
+      } has published message on ${packet.topic} to broker ${aedes.id}`
+    );
+
+    switch (packet.topic) {
+      case MqttConstants.ADMIN_SUB_CHANNEL:
+        MqttController.addSubscription(packet, client);
+        break;
+
+      case MqttConstants.ADMIN_CHANNEL_CHANNEL:
+        MqttController.addChannel(packet, client);
+        break;
+
+      case MqttConstants.CLIENT_PUB_CHANNEL:
+        MqttController.onClientPublish(packet, client);
+        break;
+
+      default:
+        await Channel.add(packet.topic);
+        break;
+    }
+
+    await Log.add(packet.topic, packet.payload.toString());
+  }
+});
+
 aedes.authorizePublish = async (client, packet, callback) => {
   if (await Rule.existsOnChannel(packet.topic)) {
     const rule = await Rule.getByChannel(packet.topic);
@@ -65,20 +104,17 @@ aedes.authorizePublish = async (client, packet, callback) => {
   }
 };
 
-// emitted when a client publishes a message packet on the topic
-aedes.on("publish", async function (packet, client) {
-  if (client) {
-    console.log(
-      `[MESSAGE_PUBLISHED] Client ${
-        client ? client.id : "BROKER_" + aedes.id
-      } has published message on ${packet.topic} to broker ${aedes.id}`
-    );
+aedes.authenticate = async (client, username, password, callback) => {
+  const res = MqttController.onClientAuthenticate(client, username, password);
 
-    await Channel.add(packet.topic);
-
-    await Log.add(packet.topic, packet.payload.toString());
+  if (res) {
+    callback(null, true);
+  } else {
+    var error = new Error("Auth error");
+    error.returnCode = 4;
+    callback(error, null);
   }
-});
+};
 
 const mqttServer = {
   run: () => {
