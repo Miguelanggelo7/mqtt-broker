@@ -3,6 +3,7 @@ import randomId from "../utils/randomId";
 
 class Store {
   static brokerDevices = new Map();
+  static clients = new Map();
   static unsubscribe;
 
   static async initStore() {
@@ -14,17 +15,54 @@ class Store {
     );
 
     if (devices) {
+      console.log("Store initialized");
+
       devices.forEach((device) => {
         this.brokerDevices.set(device.mqttId, device);
       });
-    }
 
-    this.unsubscribe = unsubscribe;
+      this.unsubscribe = unsubscribe;
+    } else {
+      console.error(new Error("Store not initialized"));
+    }
   }
 
   static onModifyCallback(devices) {
-    devices.forEach((device) => {
-      this.brokerDevices.set(device.mqttId, device);
+    devices.forEach((newDevice) => {
+      const prevDevice = this.brokerDevices.get(newDevice.mqttId);
+
+      if (prevDevice) {
+        //changes on suscriptions
+        //watch for adds
+        const newSuscriptions = newDevice.suscriptions.filter(
+          (s) => !prevDevice.suscriptions.includes(s)
+        );
+
+        //watch for deletes
+        const deletedSuscriptions = prevDevice.suscriptions.filter(
+          (s) => !newDevice.suscriptions.includes(s)
+        );
+
+        const client = this.clients.get(newDevice.mqttId);
+
+        if (newSuscriptions.length > 0) {
+          const clientNewSuscriptions = newSuscriptions.map((s) => {
+            return { topic: s, qos: 0 };
+          });
+
+          client?.suscribe(clientNewSuscriptions);
+        }
+
+        if (deletedSuscriptions.length > 0) {
+          const clientDeletedSuscriptions = deletedSuscriptions.map((s) => {
+            return { topic: s, qos: 0 };
+          });
+
+          client?.unsubscribe(clientDeletedSuscriptions);
+        }
+      }
+
+      this.brokerDevices.set(newDevice.mqttId, newDevice);
     });
   }
 
@@ -83,6 +121,14 @@ class Store {
     }
 
     return domain + "-" + newId;
+  }
+
+  static addClient(client) {
+    this.clients.set(client.id, client);
+  }
+
+  static removeClient(client) {
+    this.clients.delete(client.id);
   }
 }
 

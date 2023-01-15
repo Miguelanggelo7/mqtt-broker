@@ -1,37 +1,71 @@
 import Store from "./Store.js";
-// import MqttConstants from "../constants/MqttConstants.js";
-// import Device from "../services/mqtt-firebase/models/Device.js"
 import User from "../services/mqtt-firebase/models/User.js";
 import randomId from "../utils/randomId.js";
+import MqttConstants from "../services/mqtt-firebase/MqttConstants.js";
 
 class MqttController {
-  static aedes;
-
   static async onClientAuthenticate(client, username, password) {
+    if (!client || !client.id || !username || !password) {
+      return false;
+    }
+
     const decodePassword = Buffer.from(password, "base64").toString("ascii");
 
     const res = await User.login(username, decodePassword);
 
-    const mqttId = Store.generateMqttId(client.id, username);
-
     if (res) {
       //Add new device
-      Store.addDevice(username, mqttId, client.conn.remoteAddress);
+      Store.addDevice(username, client.id, client.conn.remoteAddress);
+
+      return true;
     }
+
+    return false;
   }
 
   static async onClientConnect(client) {
-    //get device from store
+    //set device as online
     const device = Store.getDevice(client.id);
-
     device.updateIsOnline(true);
+
+    //add client to store
+    Store.addClient(client);
   }
 
   static async onClientDisconnect(client) {
+    //set device as offline
+    const device = Store.getDevice(client.id);
+    device.updateIsOnline(false);
+
+    //remove client from store
+    Store.removeClient(client);
+  }
+
+  static async onClientPublish(packet, client) {
     //get device from store
     const device = Store.getDevice(client.id);
 
-    device.updateIsOnline(false);
+    if (!device) {
+      return;
+    }
+
+    switch (packet.topic) {
+      case MqttConstants.DEFAULT_EMIT_CHANNEL:
+        client.publish(
+          MqttController.setPacket(device.emitChannel, packet.payload)
+        );
+        break;
+
+      case MqttConstants.DEFAULT_STATE_CHANNEL:
+        client.publish(
+          MqttController.setPacket(device.stateChannel, packet.payload),
+          (error) => error && console.log(error)
+        );
+        break;
+
+      default:
+        break;
+    }
   }
 
   static setPacket(topic, payload) {
@@ -46,14 +80,6 @@ class MqttController {
       cmd: "publish",
     };
   }
-
-  // static async addSubscription(subscriptions, client) {}
-
-  // static async addChannel(subscriptions, client) {}
-
-  // static async onClientPublish(packet, client) {}
-
-  // static async onClientMessage(packet, client) {}
 }
 
 export default MqttController;

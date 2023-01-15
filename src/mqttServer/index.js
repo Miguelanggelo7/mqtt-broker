@@ -1,25 +1,19 @@
 import aedesImport from "aedes";
 import serverImport from "net";
-// import httpImport from "http";
-// import ws from "websocket-stream";
 // import Log from "../db/Log.js";
-// import Channel from "../db/Channel.js";
 // import Rule from "../db/Rule.js";
 // import Worker from "./brokerRules/Worker.js";
 import MqttController from "./MqttController.js";
-// import MqttConstants from "../constants/MqttConstants.js";
 import AuthError from "./errors/AuthError.js";
+import Store from "./Store.js";
 
 const port = 1883 || process.env.PORT;
 
 const aedes = aedesImport();
 
-// const server = httpImport.createServer();
-// ws.createServer({ server: server }, aedes.handle);
-
 const server = serverImport.createServer(aedes.handle);
 
-// MqttController.aedes = aedes;
+Store.initStore();
 
 // emitted when a client connects to the broker
 aedes.on("client", function (client) {
@@ -74,25 +68,7 @@ aedes.on("publish", async function (packet, client) {
       } has published message on ${packet.topic} to broker ${aedes.id}`
     );
 
-    // switch (packet.topic) {
-    //   case MqttConstants.ADMIN_SUB_CHANNEL:
-    //     MqttController.addSubscription(packet, client);
-    //     break;
-
-    //   case MqttConstants.ADMIN_CHANNEL_CHANNEL:
-    //     MqttController.addChannel(packet, client);
-    //     break;
-
-    //   case MqttConstants.CLIENT_PUB_CHANNEL:
-    //     MqttController.onClientPublish(packet, client);
-    //     break;
-
-    //   default:
-    //     await Channel.add(packet.topic);
-    //     break;
-    // }
-
-    // await Log.add(packet.topic, packet.payload.toString());
+    MqttController.onClientPublish(packet, client);
   }
 });
 
