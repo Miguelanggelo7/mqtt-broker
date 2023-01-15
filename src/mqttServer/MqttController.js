@@ -26,7 +26,7 @@ class MqttController {
   static async onClientConnect(client) {
     //set device as online
     const device = Store.getDevice(client.id);
-    device.updateIsOnline(true);
+    await device.updateIsOnline(true);
 
     //add client to store
     Store.addClient(client);
@@ -35,7 +35,7 @@ class MqttController {
   static async onClientDisconnect(client) {
     //set device as offline
     const device = Store.getDevice(client.id);
-    device.updateIsOnline(false);
+    await device.updateIsOnline(false);
 
     //remove client from store
     Store.removeClient(client);

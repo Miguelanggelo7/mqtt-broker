@@ -16,26 +16,26 @@ const server = serverImport.createServer(aedes.handle);
 Store.initStore();
 
 // emitted when a client connects to the broker
-aedes.on("client", function (client) {
+aedes.on("client", async (client) => {
   console.log(
     `[CLIENT_CONNECTED] Client ${
       client ? client.id : client
     } connected to broker ${aedes.id}`
   );
 
-  MqttController.onClientConnect(client);
+  await MqttController.onClientConnect(client);
 });
 
-// // emitted when a client disconnects from the broker
-// aedes.on("clientDisconnect", function (client) {
-//   console.log(
-//     `[CLIENT_DISCONNECTED] Client ${
-//       client ? client.id : client
-//     } disconnected from the broker ${aedes.id}`
-//   );
+// emitted when a client disconnects from the broker
+aedes.on("clientDisconnect", async (client) => {
+  console.log(
+    `[CLIENT_DISCONNECTED] Client ${
+      client ? client.id : client
+    } disconnected from the broker ${aedes.id}`
+  );
 
-//   MqttController.onClientDisconnect(client);
-// });
+  await MqttController.onClientDisconnect(client);
+});
 
 // // emitted when a client subscribes to a message topic
 // aedes.on("subscribe", function (subscriptions, client) {
@@ -88,12 +88,6 @@ aedes.on("client", function (client) {
 // };
 
 aedes.authenticate = async (client, username, password, callback) => {
-  console.log(
-    `[CLIENT_AUTHENTICATE] Client ${
-      client ? client.id : client
-    } is trying to authenticate to broker ${aedes.id}`
-  );
-
   const res = await MqttController.onClientAuthenticate(
     client,
     username,
@@ -102,7 +96,17 @@ aedes.authenticate = async (client, username, password, callback) => {
 
   if (res) {
     callback(null, true);
+    console.log(
+      `[AUTHENTICATE_SUCCESS] Client ${
+        client ? client.id : client
+      } authenticate successfully to broker ${aedes.id}`
+    );
   } else {
+    console.log(
+      `[AUTHENTICATE_FAILD] Client ${
+        client ? client.id : client
+      } faild on authentication to broker ${aedes.id}`
+    );
     const error = new AuthError("Auth error");
     error.returnCode = 4;
     callback(error, null);

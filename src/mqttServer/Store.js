@@ -35,6 +35,7 @@ class Store {
 
   static onModifyCallback(devices) {
     devices.forEach((newDevice) => {
+      console.log("onModifyCallback");
       const prevDevice = Store.brokerDevices.get(newDevice.mqttId);
 
       if (prevDevice) {
@@ -68,6 +69,7 @@ class Store {
         }
       }
 
+      newDevice.firebaseId = prevDevice.firebaseId;
       Store.brokerDevices.set(newDevice.mqttId, newDevice);
     });
   }
