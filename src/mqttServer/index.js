@@ -1,18 +1,25 @@
 import aedesImport from "aedes";
 import serverImport from "net";
-import Log from "../db/Log.js";
-import Channel from "../db/Channel.js";
-import Rule from "../db/Rule.js";
-import Worker from "./brokerRules/Worker.js";
+// import httpImport from "http";
+// import ws from "websocket-stream";
+// import Log from "../db/Log.js";
+// import Channel from "../db/Channel.js";
+// import Rule from "../db/Rule.js";
+// import Worker from "./brokerRules/Worker.js";
 import MqttController from "./MqttController.js";
-import MqttConstants from "../constants/MqttConstants.js";
+// import MqttConstants from "../constants/MqttConstants.js";
+import AuthError from "./errors/AuthError.js";
 
 const port = 1883 || process.env.PORT;
 
 const aedes = aedesImport();
+
+// const server = httpImport.createServer();
+// ws.createServer({ server: server }, aedes.handle);
+
 const server = serverImport.createServer(aedes.handle);
 
-MqttController.aedes = aedes;
+// MqttController.aedes = aedes;
 
 // emitted when a client connects to the broker
 aedes.on("client", function (client) {
@@ -67,42 +74,42 @@ aedes.on("publish", async function (packet, client) {
       } has published message on ${packet.topic} to broker ${aedes.id}`
     );
 
-    switch (packet.topic) {
-      case MqttConstants.ADMIN_SUB_CHANNEL:
-        MqttController.addSubscription(packet, client);
-        break;
+    // switch (packet.topic) {
+    //   case MqttConstants.ADMIN_SUB_CHANNEL:
+    //     MqttController.addSubscription(packet, client);
+    //     break;
 
-      case MqttConstants.ADMIN_CHANNEL_CHANNEL:
-        MqttController.addChannel(packet, client);
-        break;
+    //   case MqttConstants.ADMIN_CHANNEL_CHANNEL:
+    //     MqttController.addChannel(packet, client);
+    //     break;
 
-      case MqttConstants.CLIENT_PUB_CHANNEL:
-        MqttController.onClientPublish(packet, client);
-        break;
+    //   case MqttConstants.CLIENT_PUB_CHANNEL:
+    //     MqttController.onClientPublish(packet, client);
+    //     break;
 
-      default:
-        await Channel.add(packet.topic);
-        break;
-    }
+    //   default:
+    //     await Channel.add(packet.topic);
+    //     break;
+    // }
 
-    await Log.add(packet.topic, packet.payload.toString());
+    // await Log.add(packet.topic, packet.payload.toString());
   }
 });
 
-aedes.authorizePublish = async (client, packet, callback) => {
-  if (await Rule.existsOnChannel(packet.topic)) {
-    const rule = await Rule.getByChannel(packet.topic);
-    const worker = new Worker(rule, packet.topic, packet.payload.toString());
-    if (await worker.run()) {
-      callback(null);
-    } else {
-      console.log("Rule not passed");
-      callback(new Error("Rule not passed"));
-    }
-  } else {
-    callback(null);
-  }
-};
+// aedes.authorizePublish = async (client, packet, callback) => {
+//   if (await Rule.existsOnChannel(packet.topic)) {
+//     const rule = await Rule.getByChannel(packet.topic);
+//     const worker = new Worker(rule, packet.topic, packet.payload.toString());
+//     if (await worker.run()) {
+//       callback(null);
+//     } else {
+//       console.log("Rule not passed");
+//       callback(new Error("Rule not passed"));
+//     }
+//   } else {
+//     callback(null);
+//   }
+// };
 
 aedes.authenticate = async (client, username, password, callback) => {
   const res = MqttController.onClientAuthenticate(client, username, password);
@@ -110,7 +117,7 @@ aedes.authenticate = async (client, username, password, callback) => {
   if (res) {
     callback(null, true);
   } else {
-    var error = new Error("Auth error");
+    const error = new AuthError("Auth error");
     error.returnCode = 4;
     callback(error, null);
   }

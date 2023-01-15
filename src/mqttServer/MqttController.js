@@ -1,7 +1,8 @@
 import Store from "./Store.js";
-import Device from "../db/Device.js";
-import User from "../db/User.js";
-import MqttConstants from "../constants/MqttConstants.js";
+// import MqttConstants from "../constants/MqttConstants.js";
+// import Device from "../services/mqtt-firebase/models/Device.js"
+import User from "../services/mqtt-firebase/models/User.js";
+import randomId from "../utils/randomId.js";
 
 class MqttController {
   static aedes;
@@ -9,21 +10,28 @@ class MqttController {
   static async onClientAuthenticate(client, username, password) {
     const decodePassword = Buffer.from(password, "base64").toString("ascii");
 
-    //example: ucab.com.ve/light1
-    const enterprise = username.split("/")[0];
+    const res = await User.login(username, decodePassword);
 
-    const ipAddress = client.conn.remoteAddress;
-
-    const res = await User.login(enterprise, decodePassword);
+    const mqttId = Store.generateMqttId(client.id, username);
 
     if (res) {
-      //Agregar dispositivo a DB
-      const device = new Device(client.id, ipAddress, enterprise, username);
-      await Device.add(device);
-
-      //Agregar dispositivo a store
-      Store.addClient(device);
+      //Add new device
+      Store.addDevice(username, mqttId, client.conn.remoteAddress);
     }
+  }
+
+  static async onClientConnect(client) {
+    //get device from store
+    const device = Store.getDevice(client.id);
+
+    device.updateIsOnline(true);
+  }
+
+  static async onClientDisconnect(client) {
+    //get device from store
+    const device = Store.getDevice(client.id);
+
+    device.updateIsOnline(false);
   }
 
   static setPacket(topic, payload) {
@@ -32,40 +40,11 @@ class MqttController {
       payload,
       qos: 0,
       retain: false,
-      messageId: this.aedes.generateId(),
+      messageId: randomId(),
       dup: false,
       length: 0,
       cmd: "publish",
     };
-  }
-
-  static async onClientConnect(client) {
-    //get device from store
-    const device = Store.getClient(client.id);
-
-    //Send to workstation
-    this.aedes.publish(
-      this.setPacket(
-        MqttConstants.BROKER_DEVICE_CHANNEL,
-        JSON.stringify(device)
-      )
-    );
-  }
-
-  static async onClientDisconnect(client) {
-    //get device from store
-    const device = Store.getClient(client.id);
-
-    //Send to workstation
-    this.aedes.publish(
-      this.setPacket(
-        MqttConstants.BROKER_DEVICE_CHANNEL,
-        JSON.stringify(device)
-      )
-    );
-
-    //remove device from store
-    Store.removeClient(client.id);
   }
 
   // static async addSubscription(subscriptions, client) {}

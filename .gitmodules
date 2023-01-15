@@ -1,0 +1,3 @@
+[submodule "src/services/mqtt-firebase"]
+	path = src/services/mqtt-firebase
+	url = https://github.com/gustavo-dgs/mqtt-firebase
