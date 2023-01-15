@@ -42,6 +42,10 @@ class MqttController {
   }
 
   static async onClientPublish(packet, client) {
+    if (!client || !client.id || !packet) {
+      return;
+    }
+
     //get device from store
     const device = Store.getDevice(client.id);
 
@@ -66,6 +70,26 @@ class MqttController {
       default:
         break;
     }
+  }
+
+  static authorizePublish(client, packet) {
+    if (!client || !client.id || !packet) {
+      return false;
+    }
+
+    const device = Store.getDevice(client.id);
+
+    let allowPublish = true;
+
+    allowPublish = packet.topic !== MqttConstants.DEFAULT_EMIT_CHANNEL;
+
+    allowPublish = packet.topic !== MqttConstants.DEFAULT_STATE_CHANNEL;
+
+    allowPublish = device.emiChannel || device.stateChannel;
+
+    allowPublish = !packet.topic.includes(MqttConstants.$SYS_PREFIX);
+
+    return allowPublish;
   }
 
   static setPacket(topic, payload) {
