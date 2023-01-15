@@ -1,5 +1,5 @@
-import Device from "../services/mqtt-firebase/models/Device";
-import randomId from "../utils/randomId";
+import Device from "../services/mqtt-firebase/models/Device.js";
+import randomId from "../utils/randomId.js";
 
 class Store {
   static brokerDevices = new Map();
@@ -7,29 +7,35 @@ class Store {
   static unsubscribe;
 
   static async initStore() {
-    const [devices, unsubscribe] = await Device.getAll(
+    const promise = await Device.getAll(
       null,
       () => {},
-      this.onModifyCallback,
-      this.onRemoveCallback
+      Store.onModifyCallback,
+      Store.onRemoveCallback
     );
+
+    const [devices, unsubscribe] = promise;
 
     if (devices) {
       console.log("Store initialized");
 
       devices.forEach((device) => {
-        this.brokerDevices.set(device.mqttId, device);
+        Store.brokerDevices.set(device.mqttId, device);
       });
 
-      this.unsubscribe = unsubscribe;
+      Store.unsubscribe = unsubscribe;
     } else {
       console.error(new Error("Store not initialized"));
     }
   }
 
+  static closeStore() {
+    Store.unsubscribe();
+  }
+
   static onModifyCallback(devices) {
     devices.forEach((newDevice) => {
-      const prevDevice = this.brokerDevices.get(newDevice.mqttId);
+      const prevDevice = Store.brokerDevices.get(newDevice.mqttId);
 
       if (prevDevice) {
         //changes on suscriptions
@@ -43,7 +49,7 @@ class Store {
           (s) => !newDevice.suscriptions.includes(s)
         );
 
-        const client = this.clients.get(newDevice.mqttId);
+        const client = Store.clients.get(newDevice.mqttId);
 
         if (newSuscriptions.length > 0) {
           const clientNewSuscriptions = newSuscriptions.map((s) => {
@@ -62,18 +68,18 @@ class Store {
         }
       }
 
-      this.brokerDevices.set(newDevice.mqttId, newDevice);
+      Store.brokerDevices.set(newDevice.mqttId, newDevice);
     });
   }
 
   static onRemoveCallback(devices) {
     devices.forEach((device) => {
-      this.brokerDevices.delete(device.mqttId);
+      Store.brokerDevices.delete(device.mqttId);
     });
   }
 
-  static addDevice(domain, mqttId, ipAddress) {
-    const device = this.brokerDevices.get(mqttId);
+  static async addDevice(domain, mqttId, ipAddress) {
+    const device = Store.brokerDevices.get(mqttId);
 
     if (device) {
       device.isOnline = true;
@@ -98,15 +104,17 @@ class Store {
       null
     );
 
-    this.brokerDevices.set(mqttId, newDevice);
+    Store.brokerDevices.set(mqttId, newDevice);
+
+    await newDevice.add();
   }
 
   static removeDevice(device) {
-    this.brokerDevices.delete(device);
+    Store.brokerDevices.delete(device);
   }
 
   static getDevice(mqttId) {
-    return this.brokerDevices.get(mqttId);
+    return Store.brokerDevices.get(mqttId);
   }
 
   static generateMqttId(mqttId, domain) {
@@ -117,18 +125,18 @@ class Store {
     if (!mqttId) {
       newId = random;
     } else {
-      newId = this.brokerDevices.has(mqttId) ? mqttId : mqttId + random;
+      newId = Store.brokerDevices.has(mqttId) ? mqttId : mqttId + random;
     }
 
     return domain + "-" + newId;
   }
 
   static addClient(client) {
-    this.clients.set(client.id, client);
+    Store.clients.set(client.id, client);
   }
 
   static removeClient(client) {
-    this.clients.delete(client.id);
+    Store.clients.delete(client.id);
   }
 }
 
