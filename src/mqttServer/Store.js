@@ -40,18 +40,18 @@ class Store {
       if (prevDevice) {
         //changes on suscriptions
         //watch for adds
-        const newSuscriptions = newDevice.suscriptions.filter(
+        const newSuscriptions = newDevice.suscriptions?.filter(
           (s) => !prevDevice.suscriptions.includes(s)
         );
 
         //watch for deletes
-        const deletedSuscriptions = prevDevice.suscriptions.filter(
+        const deletedSuscriptions = prevDevice.suscriptions?.filter(
           (s) => !newDevice.suscriptions.includes(s)
         );
 
         const client = Store.clients.get(newDevice.mqttId);
 
-        if (newSuscriptions.length > 0) {
+        if (newSuscriptions?.length > 0) {
           const clientNewSuscriptions = newSuscriptions.map((s) => {
             return { topic: s, qos: 0 };
           });
@@ -59,7 +59,7 @@ class Store {
           client?.suscribe(clientNewSuscriptions);
         }
 
-        if (deletedSuscriptions.length > 0) {
+        if (deletedSuscriptions?.length > 0) {
           const clientDeletedSuscriptions = deletedSuscriptions.map((s) => {
             return { topic: s, qos: 0 };
           });

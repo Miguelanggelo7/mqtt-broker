@@ -15,16 +15,16 @@ const server = serverImport.createServer(aedes.handle);
 
 Store.initStore();
 
-// // emitted when a client connects to the broker
-// aedes.on("client", function (client) {
-//   console.log(
-//     `[CLIENT_CONNECTED] Client ${
-//       client ? client.id : client
-//     } connected to broker ${aedes.id}`
-//   );
+// emitted when a client connects to the broker
+aedes.on("client", function (client) {
+  console.log(
+    `[CLIENT_CONNECTED] Client ${
+      client ? client.id : client
+    } connected to broker ${aedes.id}`
+  );
 
-//   MqttController.onClientConnect(client);
-// });
+  MqttController.onClientConnect(client);
+});
 
 // // emitted when a client disconnects from the broker
 // aedes.on("clientDisconnect", function (client) {
@@ -88,6 +88,12 @@ Store.initStore();
 // };
 
 aedes.authenticate = async (client, username, password, callback) => {
+  console.log(
+    `[CLIENT_AUTHENTICATE] Client ${
+      client ? client.id : client
+    } is trying to authenticate to broker ${aedes.id}`
+  );
+
   const res = await MqttController.onClientAuthenticate(
     client,
     username,

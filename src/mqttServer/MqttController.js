@@ -15,7 +15,7 @@ class MqttController {
 
     if (res) {
       //Add new device
-      Store.addDevice(username, client.id, client.conn.remoteAddress);
+      await Store.addDevice(username, client.id, client.conn.remoteAddress);
 
       return true;
     }
