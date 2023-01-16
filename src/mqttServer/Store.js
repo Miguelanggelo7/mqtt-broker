@@ -7,23 +7,15 @@ class Store {
   static unsubscribe;
 
   static async initStore() {
-    const promise = await Device.getAll(
+    Store.unsubscribe = await Device.getAll(
       null,
-      () => {},
+      Store.onAddCallback,
       Store.onModifyCallback,
       Store.onRemoveCallback
     );
 
-    const [devices, unsubscribe] = promise;
-
-    if (devices) {
+    if (Store.unsubscribe) {
       console.log("Store initialized");
-
-      devices.forEach((device) => {
-        Store.brokerDevices.set(device.mqttId, device);
-      });
-
-      Store.unsubscribe = unsubscribe;
     } else {
       console.error(new Error("Store not initialized"));
     }
@@ -33,9 +25,15 @@ class Store {
     Store.unsubscribe();
   }
 
+  static onAddCallback(devices) {
+    devices.forEach((device) => {
+      Store.brokerDevices.set(device.mqttId, device);
+    });
+  }
+
   static onModifyCallback(devices) {
+    console.log("--------MODIFY---------------");
     devices.forEach((newDevice) => {
-      console.log("onModifyCallback");
       const prevDevice = Store.brokerDevices.get(newDevice.mqttId);
 
       if (prevDevice) {
@@ -80,12 +78,10 @@ class Store {
     });
   }
 
-  static async addDevice(domain, mqttId, ipAddress) {
+  static async addNewDevice(domain, mqttId, ipAddress) {
     const device = Store.brokerDevices.get(mqttId);
 
     if (device) {
-      device.isOnline = true;
-      device.ipAddress = ipAddress;
       return;
     }
 
@@ -95,8 +91,7 @@ class Store {
       ipAddress,
       domain,
       null,
-      null,
-      null,
+      [],
       null,
       null,
       null,
@@ -107,8 +102,6 @@ class Store {
     );
 
     Store.brokerDevices.set(mqttId, newDevice);
-
-    await newDevice.add();
   }
 
   static removeDevice(device) {

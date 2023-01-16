@@ -2,6 +2,8 @@ import Store from "./Store.js";
 import User from "../services/mqtt-firebase/models/User.js";
 import randomId from "../utils/randomId.js";
 import MqttConstants from "../services/mqtt-firebase/MqttConstants.js";
+import Device from "../services/mqtt-firebase/models/Device.js";
+import { serverTimestamp } from "firebase/firestore";
 
 class MqttController {
   static async onClientAuthenticate(client, username, password) {
@@ -15,7 +17,7 @@ class MqttController {
 
     if (res) {
       //Add new device
-      await Store.addDevice(username, client.id, client.conn.remoteAddress);
+      await Store.addNewDevice(username, client.id, client.conn.remoteAddress);
 
       return true;
     }
@@ -26,7 +28,22 @@ class MqttController {
   static async onClientConnect(client) {
     //set device as online
     const device = Store.getDevice(client.id);
-    await device.updateIsOnline(true);
+
+    console.log("onClientConnect", client.id, device.firebaseId);
+
+    if (device?.firebaseId) {
+      console.log("-------------VIEJO------------------");
+
+      await Device.updateIsOnline(device, true, client.conn.remoteAddress);
+    } else {
+      console.log("-------------NUEVO------------------");
+      device.lastTimeOnline = serverTimestamp();
+      device.isOnline = true;
+      device.ipAddress = client.conn.remoteAddress;
+      device.firebaseId = await Device.add(device);
+    }
+
+    Store.addNewDevice(device.mqttId, device);
 
     //add client to store
     Store.addClient(client);
@@ -35,7 +52,7 @@ class MqttController {
   static async onClientDisconnect(client) {
     //set device as offline
     const device = Store.getDevice(client.id);
-    await device.updateIsOnline(false);
+    await Device.updateIsOnline(device, false);
 
     //remove client from store
     Store.removeClient(client);
@@ -54,16 +71,9 @@ class MqttController {
     }
 
     switch (packet.topic) {
-      case MqttConstants.DEFAULT_EMIT_CHANNEL:
+      case MqttConstants.DEFAULT_CHANNEL:
         client.publish(
-          MqttController.setPacket(device.emitChannel, packet.payload)
-        );
-        break;
-
-      case MqttConstants.DEFAULT_STATE_CHANNEL:
-        client.publish(
-          MqttController.setPacket(device.stateChannel, packet.payload),
-          (error) => error && console.log(error)
+          MqttController.setPacket(device.channel, packet.payload)
         );
         break;
 
@@ -79,15 +89,13 @@ class MqttController {
 
     const device = Store.getDevice(client.id);
 
-    let allowPublish = true;
-
-    allowPublish = packet.topic !== MqttConstants.DEFAULT_EMIT_CHANNEL;
-
-    allowPublish = packet.topic !== MqttConstants.DEFAULT_STATE_CHANNEL;
-
-    allowPublish = device.emiChannel || device.stateChannel;
-
-    allowPublish = !packet.topic.includes(MqttConstants.$SYS_PREFIX);
+    const allowPublish =
+      //Dont publish on default channel
+      packet.topic !== MqttConstants.DEFAULT_CHANNEL &&
+      //Channel exist
+      device.channel &&
+      //Channel is not a SYS channel
+      !packet.topic.includes(MqttConstants.$SYS_PREFIX);
 
     return allowPublish;
   }
