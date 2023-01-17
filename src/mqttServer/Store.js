@@ -1,9 +1,12 @@
 import Device from "../services/mqtt-firebase/models/Device.js";
 import randomId from "../utils/randomId.js";
+import { serverTimestamp } from "firebase/firestore";
+import InmutableMap from "./inmutableObj/InmutableMap.js";
 
 class Store {
-  static brokerDevices = new Map();
+  static brokerDevices = new InmutableMap();
   static clients = new Map();
+  static newDevices = new InmutableMap();
   static unsubscribe;
 
   static async initStore() {
@@ -25,46 +28,108 @@ class Store {
     Store.unsubscribe();
   }
 
+  static getBrokerDevices() {
+    const newMap = new Map();
+    Store.brokerDevices.forEach((value, key) => {
+      const json = { ...value };
+      newMap.set(key, json);
+    });
+
+    return newMap;
+  }
+
   static onAddCallback(devices) {
+    console.log("-----------DEVICE ADDED-----------");
     devices.forEach((device) => {
       Store.brokerDevices.set(device.mqttId, device);
     });
   }
 
+  static getSubscriptionsFromDevices(suscriptionsMqttId) {
+    const clientSubscriptions = [];
+
+    if (suscriptionsMqttId) {
+      suscriptionsMqttId.forEach((mqttId) => {
+        const device = Store.getDevice(mqttId);
+
+        if (device.channel) {
+          clientSubscriptions.push({ topic: device.channel, qos: 0 });
+        }
+      });
+    }
+
+    return clientSubscriptions;
+  }
+
+  //changes on subscriptions
+  static changesOnSubscriptions(prevDevice, newDevice) {
+    const client = Store.clients.get(newDevice.mqttId);
+
+    //watch for adds
+    const newSubscriptionsMqttId =
+      newDevice.subscriptions?.filter(
+        (s) => !prevDevice.subscriptions.includes(s)
+      ) || [];
+
+    const clientNewSubscriptions = Store.getSubscriptionsFromDevices(
+      newSubscriptionsMqttId
+    );
+
+    if (clientNewSubscriptions.length > 0) {
+      client.subscribe(clientNewSubscriptions, () => {});
+    }
+
+    //watch for deletes
+    const deletedSubscriptionsDevices =
+      prevDevice.subscriptions?.filter(
+        (s) => !newDevice.subscriptions.includes(s)
+      ) || [];
+
+    const clientDeletedSubscriptions = Store.getSubscriptionsFromDevices(
+      deletedSubscriptionsDevices
+    );
+
+    if (clientDeletedSubscriptions.length > 0) {
+      client.unsubscribe(clientDeletedSubscriptions, () => {});
+    }
+  }
+
+  static changesOnChannel(prevDevice, newDevice) {
+    if (prevDevice.channel !== newDevice.channel) {
+      const originalDevices = [...Store.getBrokerDevices().values()];
+
+      originalDevices.forEach((currentDevice) => {
+        if (currentDevice.channel === prevDevice.channel) return;
+
+        if (currentDevice.subscriptions.includes(newDevice.mqttId)) {
+          const client = Store.clients.get(currentDevice.mqttId);
+
+          const oldSubscription = {
+            topic: prevDevice.channel,
+            qos: 0,
+          };
+
+          const newSubscription = {
+            topic: newDevice.channel,
+            qos: 0,
+          };
+
+          client.unsubscribe(oldSubscription, () => {
+            client.subscribe(newSubscription, () => {});
+          });
+        }
+      });
+    }
+  }
+
   static onModifyCallback(devices) {
-    console.log("--------MODIFY---------------");
+    console.log("-----------DEVICE MODIFY-----------");
     devices.forEach((newDevice) => {
-      const prevDevice = Store.brokerDevices.get(newDevice.mqttId);
+      const prevDevice = Store.getDevice(newDevice.mqttId);
 
       if (prevDevice) {
-        //changes on suscriptions
-        //watch for adds
-        const newSuscriptions = newDevice.suscriptions?.filter(
-          (s) => !prevDevice.suscriptions.includes(s)
-        );
-
-        //watch for deletes
-        const deletedSuscriptions = prevDevice.suscriptions?.filter(
-          (s) => !newDevice.suscriptions.includes(s)
-        );
-
-        const client = Store.clients.get(newDevice.mqttId);
-
-        if (newSuscriptions?.length > 0) {
-          const clientNewSuscriptions = newSuscriptions.map((s) => {
-            return { topic: s, qos: 0 };
-          });
-
-          client?.suscribe(clientNewSuscriptions);
-        }
-
-        if (deletedSuscriptions?.length > 0) {
-          const clientDeletedSuscriptions = deletedSuscriptions.map((s) => {
-            return { topic: s, qos: 0 };
-          });
-
-          client?.unsubscribe(clientDeletedSuscriptions);
-        }
+        Store.changesOnSubscriptions(prevDevice, newDevice);
+        Store.changesOnChannel(prevDevice, newDevice);
       }
 
       newDevice.firebaseId = prevDevice.firebaseId;
@@ -73,18 +138,13 @@ class Store {
   }
 
   static onRemoveCallback(devices) {
+    console.log("-----------DEVICE DELETED-----------");
     devices.forEach((device) => {
       Store.brokerDevices.delete(device.mqttId);
     });
   }
 
-  static async addNewDevice(domain, mqttId, ipAddress) {
-    const device = Store.brokerDevices.get(mqttId);
-
-    if (device) {
-      return;
-    }
-
+  static addDeviceLocally(domain, mqttId, ipAddress) {
     const newDevice = new Device(
       null,
       mqttId,
@@ -101,7 +161,26 @@ class Store {
       null
     );
 
-    Store.brokerDevices.set(mqttId, newDevice);
+    Store.newDevices.set(mqttId, newDevice);
+  }
+
+  static getDeviceLocally(mqttId) {
+    return Store.newDevices.get(mqttId);
+  }
+
+  static removeDeviceLocally(device) {
+    Store.newDevices.delete(device.mqttId);
+  }
+
+  static async addDeviceToDb(device, ipAddress) {
+    device.lastTimeOnline = serverTimestamp();
+    device.isOnline = true;
+    device.ipAddress = ipAddress;
+    device.firebaseId = await Device.add(device);
+  }
+
+  static async updateIsOnline(device, isOnline, ipAddress) {
+    await Device.updateIsOnline(device, isOnline, ipAddress);
   }
 
   static removeDevice(device) {

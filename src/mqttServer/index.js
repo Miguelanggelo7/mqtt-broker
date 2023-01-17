@@ -13,10 +13,11 @@ const aedes = aedesImport();
 
 const server = serverImport.createServer(aedes.handle);
 
-Store.initStore();
+MqttController.aedes = aedes;
+await Store.initStore();
 
 // emitted when a client connects to the broker
-aedes.on("client", async (client) => {
+aedes.on("clientReady", async (client) => {
   console.log(`[CLIENT_CONNECTED] Client ${client ? client.id : client}`);
 
   await MqttController.onClientConnect(client);
@@ -45,9 +46,9 @@ aedes.on("unsubscribe", function (subscriptions, client) {
   console.log(
     `[TOPIC_UNSUBSCRIBED] Client ${
       client ? client.id : client
-    } unsubscribed to topics: ${subscriptions.join(",")} from broker ${
-      aedes.id
-    }`
+    } unsubscribed to topics: ${subscriptions
+      .map((s) => s.topic)
+      .join(",")} from broker ${aedes.id}`
   );
 });
 
