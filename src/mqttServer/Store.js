@@ -32,7 +32,7 @@ class Store {
     device.lastTimeOnline = serverTimestamp();
     device.isOnline = true;
     device.ipAddress = ipAddress;
-    device.firebaseId = await Device.add(device);
+    await Device.add(device);
   }
 
   static getBrokerDevices() {
@@ -116,9 +116,8 @@ class Store {
         newDevice.firebaseId = prevDevice.firebaseId;
         Store.brokerDevices.set(newDevice.mqttId, newDevice);
       } else {
-        console.log(
-          "---------Se hizo una modificacion, device on no esta en la Store----------"
-        );
+        console.log("-----------ADD DEVICE (DEVICE MODIFY)-----------");
+        Store.brokerDevices.set(newDevice.mqttId, newDevice);
       }
     });
   }
@@ -190,7 +189,8 @@ class Store {
         if (currentDevice.subscriptions.includes(newDevice.mqttId)) {
           const client = Store.clients.get(currentDevice.mqttId);
 
-          const oldSubscription = {
+          if (client) {
+            const oldSubscription = {
             topic: prevDevice.channel,
             qos: 0,
           };
@@ -203,6 +203,8 @@ class Store {
           client.unsubscribe(oldSubscription, () => {
             client.subscribe(newSubscription, () => {});
           });
+          }
+          
         }
       });
     }
