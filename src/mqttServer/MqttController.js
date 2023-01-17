@@ -33,7 +33,19 @@ class MqttController {
 
     //Is device in db?
     if (device) {
+      //Update isOnline
       await Store.updateIsOnline(device, true, client.conn.remoteAddress);
+
+      // Subscribe
+      if (device.subscriptions?.length > 0) {
+        const subscriptions = Store.getSubscriptionsFromDevices(
+          device.subscriptions
+        );
+
+        if (subscriptions?.length > 0) {
+          client.subscribe(subscriptions, () => {});
+        }
+      }
     } else {
       device = Store.getDeviceLocally(client.id);
       await Store.addDeviceToDb(device, client.conn.remoteAddress);
@@ -69,8 +81,17 @@ class MqttController {
 
     switch (packet.topic) {
       case MqttConstants.DEFAULT_CHANNEL:
-        client.publish(
-          MqttController.setPacket(device.channel, packet.payload)
+        MqttController.aedes.publish(
+          MqttController.setPacket(device.channel, packet.payload),
+          (error) => {
+            if (!error) {
+              console.log(
+                `[MESSAGE_PUBLISHED] Client ${client.id} has published message on ${device.channel}`
+              );
+            } else {
+              console.log("error on publish", error);
+            }
+          }
         );
         break;
 
@@ -84,13 +105,9 @@ class MqttController {
       return false;
     }
 
-    const device = Store.getDevice(client.id);
-
     const allowPublish =
       //Dont publish on default channel
-      packet.topic === MqttConstants.DEFAULT_CHANNEL &&
-      //Channel exist
-      device.channel;
+      !packet.topic.includes(MqttConstants.$SYS_PREFIX);
 
     return allowPublish;
   }

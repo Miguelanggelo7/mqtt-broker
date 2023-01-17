@@ -28,6 +28,13 @@ class Store {
     Store.unsubscribe();
   }
 
+  static async addDeviceToDb(device, ipAddress) {
+    device.lastTimeOnline = serverTimestamp();
+    device.isOnline = true;
+    device.ipAddress = ipAddress;
+    device.firebaseId = await Device.add(device);
+  }
+
   static getBrokerDevices() {
     const newMap = new Map();
     Store.brokerDevices.forEach((value, key) => {
@@ -38,12 +45,91 @@ class Store {
     return newMap;
   }
 
+  static getDevice(mqttId) {
+    return Store.brokerDevices.get(mqttId);
+  }
+
+  static async updateIsOnline(device, isOnline, ipAddress) {
+    await Device.updateIsOnline(device, isOnline, ipAddress);
+  }
+
+  static removeDevice(device) {
+    Store.brokerDevices.delete(device);
+  }
+
+  static addDeviceLocally(domain, mqttId, ipAddress) {
+    const newDevice = new Device(
+      null,
+      mqttId,
+      ipAddress,
+      domain,
+      null,
+      [],
+      null,
+      null,
+      null,
+      false,
+      null,
+      null,
+      null
+    );
+
+    Store.newDevices.set(mqttId, newDevice);
+  }
+
+  static getDeviceLocally(mqttId) {
+    return Store.newDevices.get(mqttId);
+  }
+
+  static removeDeviceLocally(device) {
+    Store.newDevices.delete(device.mqttId);
+  }
+
+  static addClient(client) {
+    Store.clients.set(client.id, client);
+  }
+
+  static getClient(mqttId) {
+    return Store.clients.get(mqttId);
+  }
+
+  static removeClient(client) {
+    Store.clients.delete(client.id);
+  }
+
+  //-----------------------------
   static onAddCallback(devices) {
     console.log("-----------DEVICE ADDED-----------");
     devices.forEach((device) => {
       Store.brokerDevices.set(device.mqttId, device);
     });
   }
+
+  static onModifyCallback(devices) {
+    console.log("-----------DEVICE MODIFY-----------");
+    devices.forEach((newDevice) => {
+      const prevDevice = Store.getDevice(newDevice.mqttId);
+
+      if (prevDevice) {
+        Store.changesOnSubscriptions(prevDevice, newDevice);
+        Store.changesOnChannel(prevDevice, newDevice);
+        newDevice.firebaseId = prevDevice.firebaseId;
+        Store.brokerDevices.set(newDevice.mqttId, newDevice);
+      } else {
+        console.log(
+          "---------Se hizo una modificacion, device on no esta en la Store----------"
+        );
+      }
+    });
+  }
+
+  static onRemoveCallback(devices) {
+    console.log("-----------DEVICE DELETED-----------");
+    devices.forEach((device) => {
+      Store.brokerDevices.delete(device.mqttId);
+    });
+  }
+  //-----------------------------
 
   static getSubscriptionsFromDevices(suscriptionsMqttId) {
     const clientSubscriptions = [];
@@ -52,7 +138,7 @@ class Store {
       suscriptionsMqttId.forEach((mqttId) => {
         const device = Store.getDevice(mqttId);
 
-        if (device.channel) {
+        if (device?.channel) {
           clientSubscriptions.push({ topic: device.channel, qos: 0 });
         }
       });
@@ -122,75 +208,6 @@ class Store {
     }
   }
 
-  static onModifyCallback(devices) {
-    console.log("-----------DEVICE MODIFY-----------");
-    devices.forEach((newDevice) => {
-      const prevDevice = Store.getDevice(newDevice.mqttId);
-
-      if (prevDevice) {
-        Store.changesOnSubscriptions(prevDevice, newDevice);
-        Store.changesOnChannel(prevDevice, newDevice);
-      }
-
-      newDevice.firebaseId = prevDevice.firebaseId;
-      Store.brokerDevices.set(newDevice.mqttId, newDevice);
-    });
-  }
-
-  static onRemoveCallback(devices) {
-    console.log("-----------DEVICE DELETED-----------");
-    devices.forEach((device) => {
-      Store.brokerDevices.delete(device.mqttId);
-    });
-  }
-
-  static addDeviceLocally(domain, mqttId, ipAddress) {
-    const newDevice = new Device(
-      null,
-      mqttId,
-      ipAddress,
-      domain,
-      null,
-      [],
-      null,
-      null,
-      null,
-      false,
-      null,
-      null,
-      null
-    );
-
-    Store.newDevices.set(mqttId, newDevice);
-  }
-
-  static getDeviceLocally(mqttId) {
-    return Store.newDevices.get(mqttId);
-  }
-
-  static removeDeviceLocally(device) {
-    Store.newDevices.delete(device.mqttId);
-  }
-
-  static async addDeviceToDb(device, ipAddress) {
-    device.lastTimeOnline = serverTimestamp();
-    device.isOnline = true;
-    device.ipAddress = ipAddress;
-    device.firebaseId = await Device.add(device);
-  }
-
-  static async updateIsOnline(device, isOnline, ipAddress) {
-    await Device.updateIsOnline(device, isOnline, ipAddress);
-  }
-
-  static removeDevice(device) {
-    Store.brokerDevices.delete(device);
-  }
-
-  static getDevice(mqttId) {
-    return Store.brokerDevices.get(mqttId);
-  }
-
   static generateMqttId(mqttId, domain) {
     const random = randomId();
 
@@ -203,14 +220,6 @@ class Store {
     }
 
     return domain + "-" + newId;
-  }
-
-  static addClient(client) {
-    Store.clients.set(client.id, client);
-  }
-
-  static removeClient(client) {
-    Store.clients.delete(client.id);
   }
 }
 

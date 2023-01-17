@@ -57,12 +57,6 @@ aedes.on("publish", async function (packet, client) {
   const allowPublish = MqttController.authorizePublish(client, packet);
 
   if (allowPublish) {
-    console.log(
-      `[MESSAGE_PUBLISHED] Client ${
-        client ? client.id : "BROKER_" + aedes.id
-      } has published message on ${packet.topic}`
-    );
-
     MqttController.onClientPublish(packet, client);
   }
 });
