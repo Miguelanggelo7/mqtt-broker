@@ -7,6 +7,18 @@ import ErrorLog from "../services/mqtt-firebase/models/ErrorLog.js";
 
 class MqttController {
   static aedes;
+  static publishServices = [];
+
+  static mainPublish(topic, payload, callback) {
+    MqttController.aedes.publish(
+      MqttController.setPacket(topic, payload),
+      callback
+    );
+  }
+
+  static addPublishService(service) {
+    MqttController.publishServices.push(service);
+  }
 
   static async onClientAuthenticate(client, username, password, errors) {
     if (!client.clean) {
@@ -123,18 +135,19 @@ class MqttController {
 
     switch (packet.topic) {
       case MqttConstants.DEFAULT_CHANNEL:
-        MqttController.aedes.publish(
-          MqttController.setPacket(device.channel, packet.payload),
-          (error) => {
-            if (!error) {
-              console.log(
-                `[MESSAGE_PUBLISHED] Client ${client.id} has published message on ${device.channel}`
-              );
-            } else {
-              console.log("error on publish", error);
-            }
+        MqttController.mainPublish(client, device, packet, (error) => {
+          if (!error) {
+            console.log(
+              `[MESSAGE_PUBLISHED] Client ${client.id} has published message on ${device.channel}`
+            );
+          } else {
+            console.log("error on publish", error);
           }
-        );
+        });
+
+        MqttController.publishServices.forEach((service) => {
+          service(device.channel, packet.payload);
+        });
         break;
 
       default:

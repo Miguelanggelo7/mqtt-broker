@@ -29,7 +29,8 @@
     "firebase": "^9.15.0",
     "morgan": "^1.10.0",
     "net": "^1.0.2",
-    "nodemon": "^2.0.20"
+    "nodemon": "^2.0.20",
+    "websocket-stream": "^5.5.2"
   },
   "devDependencies": {
     "eslint": "^8.27.0",
