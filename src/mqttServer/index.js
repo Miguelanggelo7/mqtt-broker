@@ -4,7 +4,6 @@ import serverImport from "net";
 // import Rule from "../db/Rule.js";
 // import Worker from "./brokerRules/Worker.js";
 import MqttController from "./MqttController.js";
-import AuthError from "./errors/AuthError.js";
 import Store from "./Store.js";
 
 const port = 1883 || process.env.PORT;
@@ -15,6 +14,8 @@ const server = serverImport.createServer(aedes.handle);
 
 MqttController.aedes = aedes;
 await Store.initStore();
+
+//-------------------EVENTS-------------------
 
 // emitted when a client connects to the broker
 aedes.on("clientReady", async (client) => {
@@ -50,6 +51,7 @@ aedes.on("unsubscribe", function (subscriptions, client) {
       .map((s) => s.topic)
       .join(",")} from broker ${aedes.id}`
   );
+  MqttController.onClientUnsubscribe(client);
 });
 
 // emitted when a client publishes a message packet on the topic
@@ -76,11 +78,16 @@ aedes.on("publish", async function (packet, client) {
 //   }
 // };
 
+//-------------------HANDLERS-------------------
+
 aedes.authenticate = async (client, username, password, callback) => {
+  const errors = [];
+
   const res = await MqttController.onClientAuthenticate(
     client,
     username,
-    password
+    password,
+    errors
   );
 
   if (res) {
@@ -96,11 +103,24 @@ aedes.authenticate = async (client, username, password, callback) => {
         client ? client.id : client
       } faild on authentication`
     );
-    const error = new AuthError("Auth error");
-    error.returnCode = 4;
+
+    const error = errors[0];
     callback(error, null);
   }
 };
+
+//-------------------ERRORS-------------------
+aedes.on("clientError", function (client, err) {
+  console.log(
+    `[CLIENT_ERROR] Client ${client ? client.id : client}`,
+    err.message
+  );
+  MqttController.onClientError(client, err);
+});
+
+aedes.on("connectionError", function (client, err) {
+  console.log(`[CONNECTION_ERROR] Client ${client ? client.id : client}`, err);
+});
 
 const mqttServer = {
   run: () => {

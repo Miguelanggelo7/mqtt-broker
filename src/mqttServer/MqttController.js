@@ -2,12 +2,50 @@ import Store from "./Store.js";
 import User from "../services/mqtt-firebase/models/User.js";
 import randomId from "../utils/randomId.js";
 import MqttConstants from "../services/mqtt-firebase/MqttConstants.js";
+import MqttError from "./errors/MqttError.js";
+import ErrorLog from "../services/mqtt-firebase/models/ErrorLog.js";
 
 class MqttController {
   static aedes;
 
-  static async onClientAuthenticate(client, username, password) {
-    if (!client || !client.id || !username || !password) {
+  static async onClientAuthenticate(client, username, password, errors) {
+    if (!client.clean) {
+      //Add just a warning if client is not clean
+      MqttController.addClientWarning(client, MqttError.ERROR_CLEAN, username);
+    }
+
+    return (
+      MqttController.clientPrerrequisites(client, username, errors) &&
+      (await MqttController.clientLogin(client, username, password, errors))
+    );
+  }
+
+  static clientPrerrequisites(client, username, errors) {
+    if (!client || !client.id) {
+      errors.push(new MqttError(MqttError.ERROR_ID, client.id, username));
+      return false;
+    }
+
+    return true;
+  }
+
+  static async addClientWarning(client, errorTemplate, username) {
+    console.log(
+      `[CLIENT_WARNING] Client ${client ? client.id : client}`,
+      errorTemplate.message
+    );
+
+    MqttController.onClientError(
+      client,
+      new MqttError(errorTemplate, client.id, username)
+    );
+  }
+
+  static async clientLogin(client, username, password, errors) {
+    if (!username || !password) {
+      errors.push(
+        new MqttError(MqttError.ERROR_MISSING_CREDENTIALS, client.id, username)
+      );
       return false;
     }
 
@@ -25,6 +63,9 @@ class MqttController {
       return true;
     }
 
+    errors.push(
+      new MqttError(MqttError.ERROR_INVALID_CREDENTIALS, client.id, username)
+    );
     return false;
   }
 
@@ -54,6 +95,7 @@ class MqttController {
 
     //add client to store
     Store.addClient(client);
+    ErrorLog.deleteAll(client.id);
   }
 
   static async onClientDisconnect(client) {
@@ -110,6 +152,33 @@ class MqttController {
       !packet.topic.includes(MqttConstants.$SYS_PREFIX);
 
     return allowPublish;
+  }
+
+  static async onClientError(client, mqttError) {
+    if (!client || !client.id || !mqttError) {
+      return;
+    }
+
+    if (client.connected) return;
+
+    const logError = new ErrorLog(
+      null,
+      mqttError.errorId,
+      mqttError.name,
+      mqttError.mqttId,
+      mqttError.message,
+      mqttError.domain
+    );
+
+    await ErrorLog.add(logError);
+  }
+
+  static onClientUnsubscribe(client) {
+    if (!client || !client.id) {
+      return;
+    }
+
+    client.close();
   }
 
   static setPacket(topic, payload) {

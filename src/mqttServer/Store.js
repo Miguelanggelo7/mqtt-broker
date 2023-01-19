@@ -150,32 +150,42 @@ class Store {
   static changesOnSubscriptions(prevDevice, newDevice) {
     const client = Store.clients.get(newDevice.mqttId);
 
-    //watch for adds
-    const newSubscriptionsMqttId =
-      newDevice.subscriptions?.filter(
-        (s) => !prevDevice.subscriptions.includes(s)
-      ) || [];
+    if (client) {
+      //watch for adds
+      const newSubscriptionsMqttId =
+        newDevice.subscriptions?.filter(
+          (s) => !prevDevice.subscriptions.includes(s)
+        ) || [];
 
-    const clientNewSubscriptions = Store.getSubscriptionsFromDevices(
-      newSubscriptionsMqttId
-    );
+      const clientNewSubscriptions = Store.getSubscriptionsFromDevices(
+        newSubscriptionsMqttId
+      );
 
-    if (clientNewSubscriptions.length > 0) {
-      client.subscribe(clientNewSubscriptions, () => {});
-    }
+      if (clientNewSubscriptions.length > 0) {
+        client.subscribe(clientNewSubscriptions, () => {});
+      }
 
-    //watch for deletes
-    const deletedSubscriptionsDevices =
-      prevDevice.subscriptions?.filter(
-        (s) => !newDevice.subscriptions.includes(s)
-      ) || [];
+      //watch for deletes
+      const deletedSubscriptionsDevices =
+        prevDevice.subscriptions?.filter(
+          (s) => !newDevice.subscriptions.includes(s)
+        ) || [];
 
-    const clientDeletedSubscriptions = Store.getSubscriptionsFromDevices(
-      deletedSubscriptionsDevices
-    );
+      const clientDeletedSubscriptions = Store.getSubscriptionsFromDevices(
+        deletedSubscriptionsDevices
+      );
 
-    if (clientDeletedSubscriptions.length > 0) {
-      client.unsubscribe(clientDeletedSubscriptions, () => {});
+      if (clientDeletedSubscriptions.length > 0) {
+        client.unsubscribe(clientDeletedSubscriptions, (error) => {
+          if (error) {
+            console.error(
+              `[ERROR_UNSUBSCRIBE] error on unsubscribe on client ${
+                client ? client.id : client
+              } ${error}`
+            );
+          }
+        });
+      }
     }
   }
 
@@ -191,20 +201,19 @@ class Store {
 
           if (client) {
             const oldSubscription = {
-            topic: prevDevice.channel,
-            qos: 0,
-          };
+              topic: prevDevice.channel,
+              qos: 0,
+            };
 
-          const newSubscription = {
-            topic: newDevice.channel,
-            qos: 0,
-          };
+            const newSubscription = {
+              topic: newDevice.channel,
+              qos: 0,
+            };
 
-          client.unsubscribe(oldSubscription, () => {
-            client.subscribe(newSubscription, () => {});
-          });
+            client.unsubscribe(oldSubscription, () => {
+              client.subscribe(newSubscription, () => {});
+            });
           }
-          
         }
       });
     }
