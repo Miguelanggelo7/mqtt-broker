@@ -135,7 +135,7 @@ class MqttController {
 
     switch (packet.topic) {
       case MqttConstants.DEFAULT_CHANNEL:
-        MqttController.mainPublish(client, device, packet, (error) => {
+        MqttController.mainPublish(packet.topic, packet.payload, (error) => {
           if (!error) {
             console.log(
               `[MESSAGE_PUBLISHED] Client ${client.id} has published message on ${device.channel}`
